@@ -5,14 +5,14 @@
     "fields": [
       {
         "field_name": "title",
-        "label": "English Name",
+        "label": "Name",
         "validators": "ignore_missing unicode",
         "form_snippet": "large_text.html",
         "form_attrs": {"data-module": "slug-preview-target"}
       },
       {
         "field_name": "title_ar",
-        "label": "Arabic Name",
+        "label": "Name (ar)",
         "validators": "if_empty_same_as(title)"
       },
       {
@@ -24,13 +24,13 @@
       },
       {
         "field_name": "description",
-        "label": "English Description",
+        "label": "Description",
         "form_snippet": "markdown.html",
         "form_placeholder": "A little information about my group..."
       },
       {
         "field_name": "description_ar",
-        "label": "Arabic Description",
+        "label": "Description (ar)",
         "form_snippet": "markdown.html",
         "form_placeholder": "A little information about my group...",
         "validators": "if_empty_same_as(description)"

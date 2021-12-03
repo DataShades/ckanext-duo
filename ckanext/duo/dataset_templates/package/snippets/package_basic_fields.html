@@ -1,0 +1,16 @@
+{% ckan_extends %}
+
+{% block package_basic_fields_description %}
+    {% set locales = h.duo_offered_locales()|reject("equalto", h.duo_default_locale())|list %}
+
+    {% for locale in locales %}
+	{{ form.input('title_'~locale, id='field-title_'~locale, label=_('Title (%(locale)s)', locale=locale), placeholder=_('eg. A descriptive title'), value=data['title_'~locale], error=errors['title_'~locale], classes=['control-full', 'control-large'], attrs={'class': 'form-control'}) }}
+    {% endfor %}
+
+
+    {{ super() }}
+    {% for locale in locales %}
+	{{ form.markdown('notes_'~locale, id='field-notes_'~locale, label=_('Description (%(locale)s)', locale=locale), placeholder=_('eg. Some useful notes about the data'), value=data['notes_'~locale], error=errors['notes_'~locale]) }}
+    {% endfor %}
+
+{% endblock package_basic_fields_description %}

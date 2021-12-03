@@ -4,19 +4,81 @@ from typing import Any
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as tk
 import ckan.model as model
+from ckan.lib.plugins import DefaultDatasetForm, DefaultGroupForm, DefaultOrganizationForm
 
 from .signals import setup_listeners
 
+CONFIG_MODIFY_PACKAGE_SCHEMA = "ckanext.duo.modify_dataset_schema"
+CONFIG_MODIFY_ORGANIZATION_SCHEMA = "ckanext.duo.modify_organization_schema"
+CONFIG_MODIFY_GROUP_SCHEMA = "ckanext.duo.modify_group_schema"
+
+DEFAULT_MODIFY_PACKAGE_SCHEMA = False
+DEFAULT_MODIFY_ORGANIZATION_SCHEMA = False
+DEFAULT_MODIFY_GROUP_SCHEMA = False
+
+
 class DuoPlugin(plugins.SingletonPlugin):
-    plugins.implements(plugins.IConfigurer)
-    # IConfigurer
+    plugins.implements(plugins.IConfigurer, inherit=True)
+    plugins.implements(plugins.ITemplateHelpers)
+
+    def get_helpers(self):
+        return {
+            "duo_offered_locales": lambda: tk.aslist(tk.config.get("ckan.locales_offered", "en")),
+            "duo_default_locale": lambda: tk.config.get("ckan.locale_default", "en"),
+        }
 
     def update_config(self, config_):
+        tk.add_template_directory(config_, "templates")
         setup_listeners()
 
 
-class DuoDatasetPlugin(plugins.SingletonPlugin):
+class DuoDatasetPlugin(plugins.SingletonPlugin, DefaultDatasetForm):
+    plugins.implements(plugins.IConfigurer, inherit=True)
     plugins.implements(plugins.IPackageController, inherit=True)
+    plugins.implements(plugins.IDatasetForm, inherit=True)
+
+
+    def update_config(self, config_):
+        if tk.asbool(tk.config.get(CONFIG_MODIFY_PACKAGE_SCHEMA, DEFAULT_MODIFY_PACKAGE_SCHEMA)):
+            tk.add_template_directory(config_, "dataset_templates")
+        setup_listeners()
+
+    def package_types(self):
+        return []
+
+    def is_fallback(self):
+        return tk.asbool(tk.config.get(CONFIG_MODIFY_PACKAGE_SCHEMA, DEFAULT_MODIFY_PACKAGE_SCHEMA))
+
+    def _modify_package_schema(self, schema):
+        locales = tk.h.duo_offered_locales()
+        if_empty_same_as = tk.get_validator("if_empty_same_as")
+        convert_to_extras = tk.get_validator("convert_to_extras")
+
+        for locale in locales:
+            schema[f"title_{locale}"] = [if_empty_same_as("title"), convert_to_extras]
+            schema[f"notes_{locale}"] = [if_empty_same_as("title"), convert_to_extras]
+
+        return schema
+
+    def show_package_schema(self):
+        locales = tk.h.duo_offered_locales()
+        schema = super().show_package_schema()
+        ignore_missing = tk.get_validator("ignore_missing")
+        convert_from_extras = tk.get_validator("convert_from_extras")
+        for locale in locales:
+            schema[f"title_{locale}"] = [convert_from_extras, ignore_missing]
+            schema[f"notes_{locale}"] = [convert_from_extras, ignore_missing]
+        return schema
+
+    def update_package_schema(self):
+        schema = super().update_package_schema()
+        self._modify_package_schema(schema)
+        return schema
+
+    def create_package_schema(self):
+        schema = super().create_package_schema()
+        self._modify_package_schema(schema)
+        return schema
 
     def after_show(self, context, pkg_dict):
         if not context.get("use_cache", True) and pkg_dict["owner_org"]:
@@ -39,7 +101,7 @@ class DuoDatasetPlugin(plugins.SingletonPlugin):
             return results
 
         lang = tk.h.lang()
-        if lang != tk.config.get("ckan.locale_default", "en"):
+        if lang != tk.h.duo_default_locale():
             for k in results["search_facets"]:
                 if k not in ("groups", "organization"):
                     continue
@@ -48,15 +110,64 @@ class DuoDatasetPlugin(plugins.SingletonPlugin):
         return results
 
 
-class DuoOrganizationPlugin(plugins.SingletonPlugin):
+class GroupValidateMixin:
+    def validate(self, context, data_dict, schema, action):
+        from ckanext.scheming.validation import convert_from_extras_group
+        locales = tk.h.duo_offered_locales()
+        if_empty_same_as = tk.get_validator("if_empty_same_as")
+        convert_to_extras = tk.get_validator("convert_to_extras")
+        convert_from_extras = tk.get_validator("convert_from_extras")
+        ignore_missing = tk.get_validator("ignore_missing")
+
+        if action.endswith("_show"):
+            for locale in locales:
+                schema[f"title_{locale}"] = [convert_from_extras_group, ignore_missing]
+                schema[f"description_{locale}"] = [convert_from_extras_group, ignore_missing]
+        else:
+            for locale in locales:
+                schema[f"title_{locale}"] = [if_empty_same_as("title"), convert_to_extras]
+                schema[f"description_{locale}"] = [if_empty_same_as("description"), convert_to_extras]
+
+        return tk.navl_validate(data_dict, schema, context)
+
+
+class DuoOrganizationPlugin(GroupValidateMixin, plugins.SingletonPlugin, DefaultOrganizationForm):
+
     plugins.implements(plugins.IOrganizationController, inherit=True)
+    plugins.implements(plugins.IConfigurer, inherit=True)
+
+    plugins.implements(plugins.IGroupForm, inherit=True)
+
+    def group_types(self):
+        return ["organization"]
+
+    def is_fallback(self):
+        return False
+
+
+    def update_config(self, config_):
+        if tk.asbool(tk.config.get(CONFIG_MODIFY_ORGANIZATION_SCHEMA, DEFAULT_MODIFY_ORGANIZATION_SCHEMA)):
+            tk.add_template_directory(config_, "organization_templates")
 
     def before_view(self, data):
         return _group_translation(data)
 
 
-class DuoGroupPlugin(plugins.SingletonPlugin):
+class DuoGroupPlugin(GroupValidateMixin, plugins.SingletonPlugin, DefaultGroupForm):
     plugins.implements(plugins.IGroupController, inherit=True)
+    plugins.implements(plugins.IConfigurer, inherit=True)
+
+    plugins.implements(plugins.IGroupForm, inherit=True)
+
+    def group_types(self):
+        return ["group"]
+
+    def is_fallback(self):
+        return False
+
+    def update_config(self, config_):
+        if tk.asbool(tk.config.get(CONFIG_MODIFY_GROUP_SCHEMA, DEFAULT_MODIFY_GROUP_SCHEMA)):
+            tk.add_template_directory(config_, "group_templates")
 
     def before_view(self, data):
         return _group_translation(data)
@@ -68,7 +179,7 @@ def _group_translation(data):
     except RuntimeError:
         return data
 
-    if lang == tk.config.get("ckan.locale_default", "en"):
+    if lang == tk.h.duo_default_locale():
         return data
 
     for extra in data.get("extras", []):
@@ -106,7 +217,7 @@ def _add_translated_pkg_fields(pkg_dict):
 
 
 def _get_translated(data: dict[str, Any], field: str):
-    locales = tk.aslist(tk.config.get("ckan.locales_offered", "en"))
+    locales = tk.h.duo_offered_locales()
     return {
         locale: data.get(
             f"{field}_{locale}",

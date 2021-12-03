@@ -1,0 +1,18 @@
+{% ckan_extends %}
+
+{% block custom_fields %}
+    {% set locales = h.duo_offered_locales()|reject("equalto", h.duo_default_locale())|list %}
+    {% set attrs = {'class': 'form-control'} %}
+
+    {% for locale in locales %}
+	{{ form.input('title_'~locale, label=_('Name (%(locale)s)', locale=locale), id='field-name_'~locale, placeholder=_('My Group'), value=data['title_'~locale], error=errors['title_'~locale], classes=['control-full'], attrs=attrs) }}
+
+    {% endfor %}
+
+    {% for locale in locales %}
+	{{ form.markdown('description_'~locale, label=_('Description (%(locale)s)', locale=locale), id='field-description_'~locale, placeholder=_('A little information about my group...'), value=data['description_'~locale], error=errors['description_'~locale]) }}
+    {% endfor %}
+
+    {{ super() }}
+
+{% endblock custom_fields %}
