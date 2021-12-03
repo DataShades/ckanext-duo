@@ -12,8 +12,6 @@ Compatibility with core CKAN versions:
 | CKAN version | Compatible? |
 |--------------|-------------|
 | 2.9          | yes         |
-|              |             |
-
 
 ## Installation
 
@@ -37,6 +35,29 @@ To install ckanext-duo:
 1. Restart CKAN.
 
 
-## Config settings
+## How to use
 
-None at present
+Depending on entity that must be translated(group, dataset, organization), one
+must update corresponding metadata schema. Following fields must be added:
+
+- organization/group
+  - `title_<locale>` (ex., `title_ar`)
+  - `description_<locale>` (ex., `description_ar`)
+- dataset
+  - `title_<locale>` (ex., `title_ar`)
+  - `notes_<locale>` (ex., `notes_ar`)
+
+If you are using ckanext-scheming, define field like this::
+
+	...
+	{
+        "field_name": "title_ar",
+        "label": "Arabic Name",
+        "validators": "if_empty_same_as(title)"
+	},
+	...
+
+Or you can define custom fields using low-level `IDatasetForm`/`IGroupForm`/`IOrganizationForm`.
+
+If none of above is possible, provide an extra field via CKAN extras(key/value
+pairs of fields in the very bottom of dataset/group/organization form).

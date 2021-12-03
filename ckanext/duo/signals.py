@@ -36,4 +36,7 @@ def _translate(data, fields: Iterable[str]):
         if field not in data:
             continue
 
-        data[field] = data.get(f"{field}_{lang}", data[field])
+        data[field] = data.get(
+            f"{field}_{lang}",
+            tk.h.get_pkg_dict_extra(data, f"{field}_{lang}", data[field])
+        )
