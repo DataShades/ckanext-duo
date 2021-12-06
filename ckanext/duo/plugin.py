@@ -56,7 +56,7 @@ class DuoDatasetPlugin(plugins.SingletonPlugin, DefaultDatasetForm):
 
         for locale in locales:
             schema[f"title_{locale}"] = [if_empty_same_as("title"), convert_to_extras]
-            schema[f"notes_{locale}"] = [if_empty_same_as("title"), convert_to_extras]
+            schema[f"notes_{locale}"] = [if_empty_same_as("notes"), convert_to_extras]
 
         return schema
 
