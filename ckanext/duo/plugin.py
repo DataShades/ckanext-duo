@@ -81,14 +81,18 @@ class DuoDatasetPlugin(plugins.SingletonPlugin, DefaultDatasetForm):
         return schema
 
     def after_show(self, context, pkg_dict):
-        if not context.get("use_cache", True) and pkg_dict["owner_org"]:
-            org = tk.get_action("organization_show")(
-                context.copy(), {"id": pkg_dict["owner_org"]}
-            )
-            pkg_dict["organization"]["title_translated"] = _get_translated(org, "title")
-            pkg_dict["organization"]["description_translated"] = _get_translated(
-                org, "description"
-            )
+        if not context.get("use_cache", True):
+            if pkg_dict["owner_org"]:
+                org = tk.get_action("organization_show")(
+                    context.copy(), {"id": pkg_dict["owner_org"]}
+                )
+                pkg_dict["organization"]["title_translated"] = _get_translated(org, "title")
+                pkg_dict["organization"]["description_translated"] = _get_translated(
+                    org, "description"
+                )
+            for group in pkg_dict.get("groups", []):
+                group_data = tk.get_action("group_show")(context.copy(), {"id": group["id"]})
+                group.update(group_data)
 
         _add_translated_pkg_fields(pkg_dict)
         return pkg_dict
@@ -116,7 +120,6 @@ class GroupValidateMixin:
         locales = tk.h.duo_offered_locales()
         if_empty_same_as = tk.get_validator("if_empty_same_as")
         convert_to_extras = tk.get_validator("convert_to_extras")
-        convert_from_extras = tk.get_validator("convert_from_extras")
         ignore_missing = tk.get_validator("ignore_missing")
 
         if action.endswith("_show"):
@@ -182,7 +185,14 @@ def _group_translation(data):
     if lang == tk.h.duo_default_locale():
         return data
 
-    for extra in data.get("extras", []):
+    extras =  data.get("extras", [])
+    if not extras:
+        extras = [
+            {"key": extra.key, "value": extra.value}
+            for extra in
+            model.Session.query(model.GroupExtra).filter_by(group_id=data["id"])
+        ]
+    for extra in extras:
         if extra["key"] == f"title_{lang}":
             data["display_name"] = extra["value"]
             break

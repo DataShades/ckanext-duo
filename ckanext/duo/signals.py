@@ -21,6 +21,7 @@ def organization_translator(sender, template, context):
 
     elif template.name == "group/snippets/group_item.html":
         _translate(context.get("group"), ["description"])
+
     elif template.name == "snippets/package_item.html":
         pkg = context["package"]
         pkg["title"] = tk.h.get_translated(pkg, "title")
