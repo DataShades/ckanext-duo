@@ -11,7 +11,9 @@ from .signals import setup_listeners
 CONFIG_MODIFY_PACKAGE_SCHEMA = "ckanext.duo.modify_dataset_schema"
 CONFIG_MODIFY_ORGANIZATION_SCHEMA = "ckanext.duo.modify_organization_schema"
 CONFIG_MODIFY_GROUP_SCHEMA = "ckanext.duo.modify_group_schema"
+CONFIG_TRANSLATED_SEARCH_GROUPS  = "ckanext.duo.translate_org_during_search"
 
+DEFAULT_TRANSLATED_SEARCH_GROUPS = False
 DEFAULT_MODIFY_PACKAGE_SCHEMA = False
 DEFAULT_MODIFY_ORGANIZATION_SCHEMA = False
 DEFAULT_MODIFY_GROUP_SCHEMA = False
@@ -82,31 +84,22 @@ class DuoDatasetPlugin(plugins.SingletonPlugin, DefaultDatasetForm):
 
     def after_show(self, context, pkg_dict):
         if not context.get("use_cache", True):
-            if pkg_dict["owner_org"]:
-                org = tk.get_action("organization_show")(
-                    context.copy(), {"id": pkg_dict["owner_org"]}
-                )
-                pkg_dict["organization"]["title_translated"] = _get_translated(org, "title")
-                pkg_dict["organization"]["description_translated"] = _get_translated(
-                    org, "description"
-                )
-            for group in pkg_dict.get("groups", []):
-                group_data = tk.get_action("group_show")(context.copy(), {"id": group["id"]})
-                group.update(group_data)
-
+            _translate_organization_and_groups(pkg_dict, context)
         _add_translated_pkg_fields(pkg_dict)
         return pkg_dict
 
     def after_search(self, results, search_params):
         for result in results["results"]:
+            if tk.asbool(tk.config.get(CONFIG_TRANSLATED_SEARCH_GROUPS, DEFAULT_TRANSLATED_SEARCH_GROUPS)):
+                _translate_organization_and_groups(result, {"ignore_auth": True})
+
             _add_translated_pkg_fields(result)
 
         if not tk.request:
             return results
 
         lang = tk.h.lang()
-        if lang != tk.h.duo_default_locale():
-            for k in results["search_facets"]:
+        for k in results["search_facets"]:
                 if k not in ("groups", "organization"):
                     continue
                 _translate_group_facets(results["search_facets"][k]["items"], lang)
@@ -142,7 +135,9 @@ class DuoOrganizationPlugin(GroupValidateMixin, plugins.SingletonPlugin, Default
     plugins.implements(plugins.IGroupForm, inherit=True)
 
     def group_types(self):
-        return ["organization"]
+        if tk.asbool(tk.config.get(CONFIG_MODIFY_ORGANIZATION_SCHEMA, DEFAULT_MODIFY_ORGANIZATION_SCHEMA)):
+            return ["organization"]
+        return []
 
     def is_fallback(self):
         return False
@@ -163,7 +158,9 @@ class DuoGroupPlugin(GroupValidateMixin, plugins.SingletonPlugin, DefaultGroupFo
     plugins.implements(plugins.IGroupForm, inherit=True)
 
     def group_types(self):
-        return ["group"]
+        if tk.asbool(tk.config.get(CONFIG_MODIFY_GROUP_SCHEMA, DEFAULT_MODIFY_GROUP_SCHEMA)):
+            return ["group"]
+        return []
 
     def is_fallback(self):
         return False
@@ -180,9 +177,6 @@ def _group_translation(data):
     try:
         lang = tk.h.lang()
     except RuntimeError:
-        return data
-
-    if lang == tk.h.duo_default_locale():
         return data
 
     extras =  data.get("extras", [])
@@ -235,3 +229,17 @@ def _get_translated(data: dict[str, Any], field: str):
         )
         for locale in locales
     }
+
+
+def _translate_organization_and_groups(pkg_dict, context):
+    if pkg_dict.get("owner_org"):
+        org = tk.get_action("organization_show")(
+            context.copy(), {"id": pkg_dict["owner_org"]}
+        )
+        pkg_dict["organization"]["title_translated"] = _get_translated(org, "title")
+        pkg_dict["organization"]["description_translated"] = _get_translated(
+            org, "description"
+        )
+    for group in pkg_dict.get("groups", []):
+        group_data = tk.get_action("group_show")(context.copy(), {"id": group["id"]})
+        group.update(group_data)
