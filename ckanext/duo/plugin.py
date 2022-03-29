@@ -241,5 +241,8 @@ def _translate_organization_and_groups(pkg_dict, context):
             org, "description"
         )
     for group in pkg_dict.get("groups", []):
+        if not isinstance(group, dict):
+            continue
+
         group_data = tk.get_action("group_show")(context.copy(), {"id": group["id"]})
         group.update(group_data)
