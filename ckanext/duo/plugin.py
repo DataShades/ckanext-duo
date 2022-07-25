@@ -5,7 +5,7 @@ import ckan.plugins as plugins
 import ckan.plugins.toolkit as tk
 import ckan.model as model
 from ckan.lib.plugins import DefaultDatasetForm, DefaultGroupForm, DefaultOrganizationForm
-
+from ckan.views.dataset import _get_search_details
 from .signals import setup_listeners
 
 CONFIG_MODIFY_PACKAGE_SCHEMA = "ckanext.duo.modify_dataset_schema"
@@ -99,10 +99,26 @@ class DuoDatasetPlugin(plugins.SingletonPlugin, DefaultDatasetForm):
             return results
 
         lang = tk.h.lang()
+
+        details = _get_search_details()
         for k in results["search_facets"]:
-                if k not in ("groups", "organization"):
-                    continue
-                _translate_group_facets(results["search_facets"][k]["items"], lang)
+            if k not in ("groups", "organization"):
+                continue
+
+            grouped = details["fields_grouped"].get(k)
+            items = results["search_facets"][k]["items"]
+            if not items and grouped:
+                # Someone picked a facet and applied search queri that gives no
+                # result. I this case facet end up untranslated, because solr
+                # won't list it among available facets.
+                sub_search = tk.get_action("package_search")({}, {"rows": 0, "facet.field": [k]})
+                items.extend([
+                    dict(f, count=0) for f in
+                    sub_search["search_facets"][k]["items"]
+                    if f["name"] in grouped
+                ])
+
+            _translate_group_facets(items, lang)
 
         return results
 
