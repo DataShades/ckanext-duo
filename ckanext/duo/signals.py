@@ -4,12 +4,12 @@ from typing import Iterable
 from flask.signals import before_render_template
 import ckan.plugins.toolkit as tk
 
+
 def setup_listeners():
     before_render_template.connect(organization_translator)
 
 
 def organization_translator(sender, template, context):
-
     if template.name == "organization/snippets/organization_item.html":
         _translate(context.get("organization"), ["description"])
 
@@ -39,5 +39,5 @@ def _translate(data, fields: Iterable[str]):
 
         data[field] = data.get(
             f"{field}_{lang}",
-            tk.h.get_pkg_dict_extra(data, f"{field}_{lang}", data[field])
+            tk.h.get_pkg_dict_extra(data, f"{field}_{lang}", data[field]),
         )
