@@ -108,8 +108,8 @@ class DuoDatasetPlugin(plugins.SingletonPlugin, DefaultDatasetForm):
             grouped = details["fields_grouped"].get(k)
             items = results["search_facets"][k]["items"]
             if not items and grouped:
-                # Someone picked a facet and applied search queri that gives no
-                # result. I this case facet end up untranslated, because solr
+                # Someone picked a facet and applied search query that gives no
+                # results. I this case facet ends up untranslated, because Solr
                 # won't list it among available facets.
                 sub_search = tk.get_action("package_search")({}, {"rows": 0, "facet.field": [k]})
                 items.extend([
