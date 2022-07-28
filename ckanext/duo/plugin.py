@@ -291,7 +291,7 @@ def _translate_group_facets(items: list[dict[str, Any]], lang: str):
     translated = dict(groups)
 
     for item in items:
-        item["display_name"] = translated.get(item["name"], item["name"])
+        item["display_name"] = translated.get(item["name"], item["display_name"])
 
 
 def _add_translated_pkg_fields(pkg_dict):
