@@ -1,3 +1,48 @@
+[build-system]
+requires = [ "setuptools",]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ckanext-duo"
+version = "0.1.2.post1"
+description = ""
+classifiers = [ "Development Status :: 4 - Beta", "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)", "Programming Language :: Python :: 3.7", "Programming Language :: Python :: 3.8", "Programming Language :: Python :: 3.9", "Programming Language :: Python :: 3.10",]
+keywords = [ "CKAN",]
+dependencies = [ "blinker",]
+authors = [
+    {name = "DataShades", email = "datashades@linkdigital.com.au"},
+    {name = "Sergey Motornyuk", email = "sergey.motornyuk@linkdigital.com.au"},
+]
+maintainers = [
+    {name = "DataShades", email = "datashades@linkdigital.com.au"},
+]
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[project.license]
+text = "AGPL"
+
+[project.urls]
+Homepage = "https://github.com/DataShades/ckanext-duo"
+
+[project.entry-points."ckan.plugins"]
+duo = "ckanext.duo.plugin:DuoPlugin"
+duo_dataset = "ckanext.duo.plugin:DuoDatasetPlugin"
+duo_organization = "ckanext.duo.plugin:DuoOrganizationPlugin"
+duo_group = "ckanext.duo.plugin:DuoGroupPlugin"
+
+[project.entry-points."babel.extractors"]
+ckan = "ckan.lib.extract:extract_ckan"
+
+[tool.pytest.ini_options]
+filterwarnings = [ "ignore::sqlalchemy.exc.SADeprecationWarning", "ignore::sqlalchemy.exc.SAWarning", "ignore::DeprecationWarning",]
+addopts = "--ckan-ini test.ini"
+
+[tool.setuptools.packages]
+find = {}
+
 [tool.black]
 line-length = 79
 preview = true
